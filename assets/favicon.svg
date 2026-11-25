@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="fm-grad" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="55%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="fm-accent" x1="18" y1="16" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#fm-grad)"/>
+  <rect x="3" y="3" width="58" height="58" rx="14" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+  <!-- Stylized F monogram -->
+  <path d="M18 18H40V24.5H25.2V30.2H36.5V36.4H25.2V46H18V18Z" fill="url(#fm-accent)"/>
+  <!-- Developer terminal dot / chevron accent -->
+  <path d="M39 39.5L45 43L39 46.5" stroke="#38bdf8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="45" cy="21.5" r="3" fill="#4ade80"/>
+</svg>
