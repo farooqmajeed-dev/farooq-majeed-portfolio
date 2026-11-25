@@ -480,7 +480,7 @@
 
       const subject = encodeURIComponent(`Portfolio Inquiry from ${name}`);
       const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`);
-      window.location.href = `mailto:farooqmajeed.1@outlook.com?subject=${subject}&body=${body}`;
+      window.location.href = `mailto:mfarooqmajeedr@gmail.com?subject=${subject}&body=${body}`;
 
       if (formStatus) {
         formStatus.textContent = 'Opening your email client to send your message to Farooq Majeed...';
