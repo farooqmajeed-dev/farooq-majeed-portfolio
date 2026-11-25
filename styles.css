@@ -5,7 +5,7 @@
    ========================================================================== */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   &:has(> head > meta[name="color-scheme"][content="dark"]) {
     color-scheme: dark;
@@ -281,31 +281,55 @@ a:hover { text-decoration: underline; }
   color: var(--text-muted);
 }
 
-/* Theme toggle visibility */
+/* Theme toggle: default (light) shows moon icon to switch to dark; dark shows sun icon to switch to light */
+.theme-icon-light,
+.theme-label-light {
+  display: none;
+}
+
 .theme-icon-dark,
 .theme-label-dark {
-  display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-icon-light,
-  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-label-light {
-    display: none;
-  }
-  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-icon-dark,
-  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-label-dark {
-    display: inline-flex;
-  }
-}
-
-:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-light,
-:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-label-light {
-  display: none;
+  display: inline-flex;
 }
 
 :root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-dark,
 :root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-label-dark {
+  display: none;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-light,
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-label-light {
   display: inline-flex;
+}
+
+.icon-btn.mobile-menu-btn {
+  display: none;
+}
+
+.mobile-nav {
+  display: none;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-alt);
+  font-family: var(--font-mono);
+}
+
+.mobile-nav:not([hidden]) {
+  display: flex;
+}
+
+.mobile-nav a {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.mobile-nav a:hover {
+  background: var(--accent-soft);
+  text-decoration: none;
 }
 
 /* Buttons */
@@ -1092,6 +1116,31 @@ a:hover { text-decoration: underline; }
 .project-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md), var(--shadow-glow); }
 .tilt-card { will-change: transform; }
 
+.project-thumb {
+  margin: 0 0 0.25rem;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--console-bg);
+}
+
+.project-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  @media (prefers-reduced-motion: no-preference) {
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .project-card:hover .project-thumb img {
+    transform: scale(1.04);
+  }
+}
+
 .project-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .project-year { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); }
 .project-badge {
@@ -1368,7 +1417,28 @@ a:hover { text-decoration: underline; }
   .reveal.is-visible { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@media (max-width: 920px) {
-  .hero-grid, .contact-grid, .timeline-item { grid-template-columns: 1fr; }
+@media (max-width: 960px) {
+  .hero-grid, .contact-grid, .timeline-item { grid-template-columns: minmax(0, 1fr); }
   .main-nav, .cmd-trigger, .git-branch { display: none; }
+  .icon-btn.mobile-menu-btn { display: inline-flex; }
+}
+
+@media (max-width: 640px) {
+  .header-cta { display: none; }
+  .hero-actions { flex-direction: column; align-items: stretch; }
+  .hero-actions .btn { width: 100%; justify-content: center; }
+  .btn-mono-copy { word-break: break-all; }
+  .hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+  .metric-card { padding: 0.9rem; }
+  .metric-value { font-size: 1.4rem; }
+  .skills-grid, .credentials-grid { grid-template-columns: minmax(0, 1fr); }
+  .timeline { padding-left: 1.25rem; }
+  .timeline-item { padding: 1.15rem; gap: 0.85rem; }
+  .timeline-node { left: -1.18rem; top: 1.4rem; }
+  .console-topbar { flex-wrap: wrap; }
+  .ide-status-bar { display: none; }
+}
+
+@media (max-width: 380px) {
+  .hero-metrics { grid-template-columns: 1fr; }
 }

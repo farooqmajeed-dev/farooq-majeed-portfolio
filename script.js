@@ -59,50 +59,56 @@
   });
 
   /* ========================================================================
-     1. Two-State Color Scheme Toggle
+     1. Light-First Color Scheme Toggle (Default: Light, Click -> Dark)
      ======================================================================== */
   const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
   const themeToggleBtn = document.getElementById('theme-toggle');
-  const darkMql = window.matchMedia('(prefers-color-scheme: dark)');
 
-  const getSystemScheme = () => (darkMql.matches ? 'dark' : 'light');
-  const getStoredScheme = () => {
+  const getCurrentScheme = () => {
     try {
       const val = localStorage.getItem('color-scheme');
-      return val === 'light' || val === 'dark' ? val : null;
+      if (val === 'dark' || val === 'light') return val;
     } catch {
-      return null;
+      // Ignore storage access errors
     }
+    return metaColorScheme?.content === 'dark' ? 'dark' : 'light';
   };
+
   const applyScheme = (scheme) => {
-    if (metaColorScheme) metaColorScheme.content = scheme ?? 'light dark';
+    if (metaColorScheme) metaColorScheme.content = scheme;
   };
 
   const toggleTheme = () => {
-    if (!metaColorScheme) return;
-    const currentRendered = getStoredScheme() ?? getSystemScheme();
-    const target = currentRendered === 'dark' ? 'light' : 'dark';
-    const system = getSystemScheme();
-
+    const next = getCurrentScheme() === 'dark' ? 'light' : 'dark';
+    applyScheme(next);
     try {
-      if (target === system) {
-        localStorage.removeItem('color-scheme');
-        applyScheme(null);
-      } else {
-        localStorage.setItem('color-scheme', target);
-        applyScheme(target);
-      }
+      localStorage.setItem('color-scheme', next);
     } catch {
-      applyScheme(target === system ? null : target);
+      // Ignore storage access errors
     }
   };
 
   themeToggleBtn?.addEventListener('click', toggleTheme);
   window.addEventListener('storage', (event) => {
-    if (event.key === 'color-scheme') {
-      const val = event.newValue;
-      applyScheme(val === 'light' || val === 'dark' ? val : null);
+    if (event.key === 'color-scheme' && (event.newValue === 'dark' || event.newValue === 'light')) {
+      applyScheme(event.newValue);
     }
+  });
+
+  /* Mobile Navigation Drawer Toggle */
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mobileNav = document.getElementById('mobile-nav');
+  mobileMenuBtn?.addEventListener('click', () => {
+    if (!mobileNav) return;
+    const isHidden = mobileNav.hidden;
+    mobileNav.hidden = !isHidden;
+    mobileMenuBtn.setAttribute('aria-expanded', String(isHidden));
+  });
+  mobileNav?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => {
+      mobileNav.hidden = true;
+      mobileMenuBtn?.setAttribute('aria-expanded', 'false');
+    });
   });
 
   /* ========================================================================
@@ -706,11 +712,90 @@
   }
 
   /* ========================================================================
-     11. Staggered Scroll Reveal
+     11. GSAP + ScrollTrigger Choreography (with Reduced-Motion & Fallback)
      ======================================================================== */
   const revealEls = document.querySelectorAll('.reveal');
 
-  if (!prefersReducedMotion && 'IntersectionObserver' in window) {
+  if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+    gsap.registerPlugin(ScrollTrigger);
+    const mm = gsap.matchMedia();
+
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      // Make CSS .reveal elements immediately eligible for GSAP control
+      revealEls.forEach((el) => el.classList.add('is-visible'));
+
+      // Hero entrance stagger
+      gsap.from('.hero-content > *', {
+        y: 20,
+        opacity: 0,
+        duration: 0.65,
+        stagger: 0.08,
+        ease: 'power3.out',
+        clearProps: 'transform,opacity'
+      });
+
+      gsap.from('.hero-visual', {
+        y: 24,
+        opacity: 0,
+        duration: 0.75,
+        delay: 0.18,
+        ease: 'power3.out',
+        clearProps: 'transform,opacity'
+      });
+
+      // Scroll-triggered section staggers
+      const staggerGroups = [
+        '.skills-grid .skill-card',
+        '.timeline .timeline-item',
+        '.bento-grid .project-card',
+        '.repos-bento .repo-card',
+        '.credentials-grid .credential-group',
+        '.contact-grid > *'
+      ];
+
+      staggerGroups.forEach((selector) => {
+        const items = gsap.utils.toArray(selector);
+        if (!items.length) return;
+        gsap.from(items, {
+          y: 26,
+          opacity: 0,
+          duration: 0.6,
+          stagger: 0.09,
+          ease: 'power2.out',
+          clearProps: 'transform,opacity',
+          scrollTrigger: {
+            trigger: items[0],
+            start: 'top 86%',
+            once: true
+          }
+        });
+      });
+
+      // Subtle magnetic pull on primary buttons for fine pointers
+      if (hasFinePointer) {
+        document.querySelectorAll('.btn-primary').forEach((btn) => {
+          const xTo = gsap.quickTo(btn, 'x', { duration: 0.3, ease: 'power3.out' });
+          const yTo = gsap.quickTo(btn, 'y', { duration: 0.3, ease: 'power3.out' });
+
+          btn.addEventListener('pointermove', (e) => {
+            const r = btn.getBoundingClientRect();
+            const dx = (e.clientX - (r.left + r.width / 2)) * 0.2;
+            const dy = (e.clientY - (r.top + r.height / 2)) * 0.2;
+            xTo(dx);
+            yTo(dy);
+          });
+          btn.addEventListener('pointerleave', () => {
+            xTo(0);
+            yTo(0);
+          });
+        });
+      }
+    });
+
+    mm.add('(prefers-reduced-motion: reduce)', () => {
+      revealEls.forEach((el) => el.classList.add('is-visible'));
+    });
+  } else if (!prefersReducedMotion && 'IntersectionObserver' in window) {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
