@@ -5,6 +5,60 @@
   const hasFinePointer = window.matchMedia('(pointer: fine)').matches;
 
   /* ========================================================================
+     0. Live Karachi (PKT) Timezone Clock + Optional Web Audio Micro-SFX
+     ======================================================================== */
+  const pktClockEl = document.getElementById('pkt-clock');
+  const updateClock = () => {
+    if (!pktClockEl) return;
+    try {
+      const now = new Date();
+      const formatted = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Karachi',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(now);
+      pktClockEl.textContent = `${formatted} PKT`;
+    } catch {
+      pktClockEl.textContent = 'PKT (UTC+5)';
+    }
+  };
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  let sfxEnabled = false;
+  let audioCtx = null;
+  const sfxBtn = document.getElementById('sfx-toggle');
+  const sfxIcon = document.getElementById('sfx-icon');
+
+  const playTick = (freq = 660, duration = 0.035) => {
+    if (!sfxEnabled) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.035, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch {
+      // Ignore Web Audio errors if blocked
+    }
+  };
+
+  sfxBtn?.addEventListener('click', () => {
+    sfxEnabled = !sfxEnabled;
+    sfxBtn.setAttribute('aria-pressed', String(sfxEnabled));
+    sfxBtn.setAttribute('aria-label', sfxEnabled ? 'Disable UI sound effects' : 'Enable UI sound effects');
+    if (sfxIcon) sfxIcon.textContent = sfxEnabled ? '\u{1F50A}' : '\u{1F507}';
+    if (sfxEnabled) playTick(780, 0.05);
+  });
+
+  /* ========================================================================
      1. Two-State Color Scheme Toggle
      ======================================================================== */
   const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
@@ -21,38 +75,38 @@
     }
   };
   const applyScheme = (scheme) => {
-    metaColorScheme.content = scheme ?? 'light dark';
+    if (metaColorScheme) metaColorScheme.content = scheme ?? 'light dark';
   };
 
-  if (themeToggleBtn && metaColorScheme) {
-    themeToggleBtn.addEventListener('click', () => {
-      const currentRendered = getStoredScheme() ?? getSystemScheme();
-      const target = currentRendered === 'dark' ? 'light' : 'dark';
-      const system = getSystemScheme();
+  const toggleTheme = () => {
+    if (!metaColorScheme) return;
+    const currentRendered = getStoredScheme() ?? getSystemScheme();
+    const target = currentRendered === 'dark' ? 'light' : 'dark';
+    const system = getSystemScheme();
 
-      try {
-        if (target === system) {
-          localStorage.removeItem('color-scheme');
-          applyScheme(null);
-        } else {
-          localStorage.setItem('color-scheme', target);
-          applyScheme(target);
-        }
-      } catch {
-        applyScheme(target === system ? null : target);
+    try {
+      if (target === system) {
+        localStorage.removeItem('color-scheme');
+        applyScheme(null);
+      } else {
+        localStorage.setItem('color-scheme', target);
+        applyScheme(target);
       }
-    });
+    } catch {
+      applyScheme(target === system ? null : target);
+    }
+  };
 
-    window.addEventListener('storage', (event) => {
-      if (event.key === 'color-scheme') {
-        const val = event.newValue;
-        applyScheme(val === 'light' || val === 'dark' ? val : null);
-      }
-    });
-  }
+  themeToggleBtn?.addEventListener('click', toggleTheme);
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'color-scheme') {
+      const val = event.newValue;
+      applyScheme(val === 'light' || val === 'dark' ? val : null);
+    }
+  });
 
   /* ========================================================================
-     2. Scroll Progress Fallback (when animation-timeline: scroll() unsupported)
+     2. Scroll Progress Fallback
      ======================================================================== */
   const progressBar = document.getElementById('scroll-progress');
   if (progressBar && !prefersReducedMotion && !CSS.supports('animation-timeline', 'scroll()')) {
@@ -66,8 +120,28 @@
   }
 
   /* ========================================================================
-     3. Hero Pointer Spotlight & 3D Card Tilt (Fine Pointer + Motion Allowed)
+     3. Hero Role Cycler & Pointer Spotlight / 3D Tilt
      ======================================================================== */
+  const roleCycler = document.getElementById('role-cycler');
+  const roles = [
+    'Frontend Developer & UI/UX',
+    'QA & Performance Specialist',
+    'Accessibility & Speed Engineer'
+  ];
+
+  if (roleCycler && !prefersReducedMotion) {
+    let idx = 0;
+    setInterval(() => {
+      idx = (idx + 1) % roles.length;
+      roleCycler.style.opacity = '0';
+      setTimeout(() => {
+        roleCycler.textContent = roles[idx];
+        roleCycler.style.opacity = '1';
+      }, 180);
+    }, 3200);
+    roleCycler.style.transition = 'opacity 0.18s ease';
+  }
+
   if (!prefersReducedMotion && hasFinePointer) {
     const heroSection = document.getElementById('top');
     heroSection?.addEventListener('pointermove', (e) => {
@@ -92,37 +166,130 @@
   }
 
   /* ========================================================================
-     4. Interactive Developer Console (Audit Replay + Tab Switch)
+     4. Copy Email Button
      ======================================================================== */
-  const auditLines = document.querySelectorAll('.audit-line');
+  const copyEmailBtn = document.getElementById('copy-email-btn');
+  const copyStatus = document.getElementById('copy-email-status');
+
+  const copyEmail = async () => {
+    const email = copyEmailBtn?.dataset.email || 'mfarooqmajeedr@gmail.com';
+    try {
+      await navigator.clipboard.writeText(email);
+      if (copyStatus) {
+        copyStatus.textContent = 'Copied!';
+        setTimeout(() => { copyStatus.textContent = 'Copy'; }, 2000);
+      }
+    } catch {
+      window.location.href = `mailto:${email}`;
+    }
+  };
+  copyEmailBtn?.addEventListener('click', copyEmail);
+
+  /* ========================================================================
+     5. Interactive Developer CLI Terminal
+     ======================================================================== */
+  const auditLog = document.getElementById('audit-log');
   const rerunBtn = document.getElementById('rerun-audit');
   const consoleTabs = document.querySelectorAll('.console-tab');
   const consolePanels = document.querySelectorAll('[data-console-panel]');
+  const cliForm = document.getElementById('cli-form');
+  const cliInput = document.getElementById('cli-input');
+  const typedCmd = document.getElementById('typed-cmd');
 
-  const playAuditAnimation = () => {
-    if (prefersReducedMotion) {
-      auditLines.forEach((line) => line.classList.add('is-shown'));
-      return;
-    }
-    auditLines.forEach((line) => line.classList.remove('is-shown'));
-    auditLines.forEach((line) => {
-      const delay = Number(line.dataset.delay || 0);
-      setTimeout(() => line.classList.add('is-shown'), delay);
+  const defaultLines = [
+    { badge: 'PASS', cls: 'ok', text: 'Load-Speed Optimization ', strong: '+40% faster' },
+    { badge: 'PASS', cls: 'ok', text: 'Managed Fleet Uptime ', strong: '350+ sites (99.9%)' },
+    { badge: 'PASS', cls: 'ok', text: 'Accessibility & Cross-Browser QA ', strong: 'Verified' },
+    { badge: 'PASS', cls: 'ok', text: 'Analytics & Retention ', strong: '+35% tracking / +15% retention' }
+  ];
+
+  const cliOutputs = {
+    whoami: [
+      { badge: 'USER', cls: 'info', text: 'Farooq Majeed — ', strong: 'Frontend Developer & UI/UX (5+ yrs)' },
+      { badge: 'LOC ', cls: 'info', text: 'Karachi, PK — ', strong: 'Open to Remote (Gulf, UK, Europe & USA)' }
+    ],
+    skills: [
+      { badge: 'UI  ', cls: 'info', text: 'HTML5, CSS3, ES6+, jQuery, Bootstrap, ', strong: 'WCAG Auditing' },
+      { badge: 'QA  ', cls: 'info', text: 'Manual QA, Cross-Browser, ', strong: 'Load-Speed Analysis' },
+      { badge: 'OPS ', cls: 'info', text: 'WordPress, PHP, cPanel/WHM, Imunify360, ', strong: 'GTM & CDN' }
+    ],
+    projects: [
+      { badge: '2022', cls: 'ok', text: 'BookScribe Online — ', strong: '100+ acquisitions' },
+      { badge: '2023', cls: 'ok', text: 'American Publishing Studios — ', strong: 'Top USA rankings' },
+      { badge: '2024', cls: 'ok', text: 'Security & Uptime Infra — ', strong: '99.9% uptime (350+ sites)' }
+    ],
+    help: [
+      { badge: 'CMD ', cls: 'info', text: 'Available: ', strong: 'whoami | skills | projects | audit | clear' }
+    ]
+  };
+
+  const renderTerminalLines = (cmdText, lines) => {
+    if (!auditLog) return;
+    if (typedCmd) typedCmd.textContent = cmdText;
+    auditLog.replaceChildren();
+
+    lines.forEach((item, index) => {
+      const li = document.createElement('li');
+      li.className = 'audit-line';
+      const badge = document.createElement('span');
+      badge.className = item.cls;
+      badge.textContent = item.badge;
+      const strong = document.createElement('strong');
+      strong.textContent = item.strong;
+      li.append(badge, document.createTextNode(item.text), strong);
+      auditLog.appendChild(li);
+
+      if (prefersReducedMotion) {
+        li.classList.add('is-shown');
+      } else {
+        setTimeout(() => li.classList.add('is-shown'), index * 120);
+      }
     });
   };
 
-  playAuditAnimation();
+  const runCommand = (rawCmd) => {
+    const cmd = rawCmd.trim().toLowerCase();
+    if (!cmd) return;
+    playTick(540, 0.03);
+    if (cmd === 'clear') {
+      if (typedCmd) typedCmd.textContent = 'clear';
+      auditLog?.replaceChildren();
+      return;
+    }
+    if (cmd === 'audit' || cmd === 'npx web-audit --engineer farooq-majeed') {
+      renderTerminalLines('npx web-audit --engineer farooq-majeed', defaultLines);
+      return;
+    }
+    if (cliOutputs[cmd]) {
+      renderTerminalLines(cmd, cliOutputs[cmd]);
+    } else {
+      renderTerminalLines(cmd, [
+        { badge: 'ERR ', cls: 'info', text: `Command not found: ${cmd}. Try `, strong: 'help' }
+      ]);
+    }
+  };
+
+  renderTerminalLines('npx web-audit --engineer farooq-majeed', defaultLines);
+
   rerunBtn?.addEventListener('click', () => {
-    // Switch back to audit tab if currently viewing profile.json
     consoleTabs.forEach((t) => {
       const active = t.dataset.consoleTab === 'audit';
       t.classList.toggle('is-active', active);
       t.setAttribute('aria-selected', String(active));
     });
-    consolePanels.forEach((p) => {
-      p.hidden = p.dataset.consolePanel !== 'audit';
-    });
-    playAuditAnimation();
+    consolePanels.forEach((p) => { p.hidden = p.dataset.consolePanel !== 'audit'; });
+    renderTerminalLines('npx web-audit --engineer farooq-majeed', defaultLines);
+  });
+
+  document.querySelectorAll('.cli-chip').forEach((chip) => {
+    chip.addEventListener('click', () => runCommand(chip.dataset.cli || 'help'));
+  });
+
+  cliForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!cliInput) return;
+    runCommand(cliInput.value);
+    cliInput.value = '';
   });
 
   consoleTabs.forEach((tab) => {
@@ -140,7 +307,7 @@
   });
 
   /* ========================================================================
-     5. Animated Stat Counters
+     6. Animated Stat Counters
      ======================================================================== */
   const counterEls = document.querySelectorAll('[data-count]');
   if (!prefersReducedMotion && counterEls.length) {
@@ -154,8 +321,7 @@
       const step = (now) => {
         const progress = Math.min(1, (now - start) / duration);
         const eased = 1 - Math.pow(1 - progress, 3);
-        const value = (target * eased).toFixed(decimals);
-        el.textContent = `${value}${suffix}`;
+        el.textContent = `${(target * eased).toFixed(decimals)}${suffix}`;
         if (progress < 1) requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
@@ -163,7 +329,7 @@
   }
 
   /* ========================================================================
-     6. Tech Marquee Pause / Play Control (WCAG 2.2.2)
+     7. Tech Marquee Pause / Play Control (WCAG 2.2.2)
      ======================================================================== */
   const marqueeToggle = document.getElementById('marquee-toggle');
   const marqueeTrack = document.getElementById('marquee-track');
@@ -178,7 +344,7 @@
   });
 
   /* ========================================================================
-     7. Skills Category Filter Tabs
+     8. Skills Category Filter Tabs
      ======================================================================== */
   const filterButtons = document.querySelectorAll('.filter-chip');
   const skillCards = document.querySelectorAll('.skill-card');
@@ -191,77 +357,15 @@
         b.classList.toggle('is-active', active);
         b.setAttribute('aria-selected', String(active));
       });
-
       skillCards.forEach((card) => {
-        const match = filter === 'all' || card.dataset.category === filter;
-        card.hidden = !match;
+        card.hidden = !(filter === 'all' || card.dataset.category === filter);
       });
     });
   });
 
   /* ========================================================================
-     8. Project Case Study Modal (<dialog> with Top-Layer Exit Fallback)
+     9. Shared Top-Layer Dialog Close Helper + Modals & Command Palette
      ======================================================================== */
-  const projectData = {
-    bookscribe: {
-      year: '2022',
-      title: 'BookScribe Online',
-      badge: 'Frontend UX & Technical SEO',
-      summary:
-        'Designed, developed, and optimized the frontend user experience and technical SEO foundation for BookScribe Online.',
-      bullets: [
-        'Architected responsive landing pages and conversion-focused UI flows.',
-        'Applied technical SEO best practices and load-speed optimization.',
-        'Drove 100+ customer acquisitions through improved UX and search visibility.'
-      ]
-    },
-    aps: {
-      year: '2023',
-      title: 'American Publishing Studios',
-      badge: 'Web Platform & Performance Tuning',
-      summary:
-        'Built and maintained the web platform with data-driven technical SEO and frontend performance tuning.',
-      bullets: [
-        'Refactored assets, caching, and page structure for faster Core Web Vitals.',
-        'Implemented structured technical SEO and analytics tracking.',
-        'Achieved top USA search rankings for target publishing keywords.'
-      ]
-    },
-    security: {
-      year: '2024',
-      title: 'Security & Uptime Infrastructure',
-      badge: 'Server Hardening & Reliability',
-      summary:
-        'Deployed Imunify360, SSL/TLS encryption, and server hardening protocols across 350+ managed web properties.',
-      bullets: [
-        'Standardized SSL/TLS and Imunify360 protection across cPanel / WHM & Hostwinds.',
-        'Reduced security vulnerabilities by 30% across the managed fleet.',
-        'Maintained 99.9% security uptime for client production websites.'
-      ]
-    },
-    campaign: {
-      year: '2024',
-      title: 'Digital Campaign & Design Leadership',
-      badge: 'Creative Production & Brand Visibility',
-      summary:
-        'Led end-to-end design production for digital campaigns, social media assets, book trailers, and press releases.',
-      bullets: [
-        'Coordinated visual assets across marketing, design, and product teams.',
-        'Delivered cohesive campaign collateral to expand digital visibility.',
-        'Aligned creative deliverables with measurable user engagement goals.'
-      ]
-    }
-  };
-
-  const modal = document.getElementById('project-modal');
-  const modalYear = document.getElementById('modal-year');
-  const modalTitle = document.getElementById('modal-title');
-  const modalBadge = document.getElementById('modal-badge');
-  const modalSummary = document.getElementById('modal-summary');
-  const modalBullets = document.getElementById('modal-bullets');
-  const modalCloseBtn = document.getElementById('modal-close-btn');
-  const modalContactLink = document.getElementById('modal-contact-link');
-
   let supportsDisplayTransition;
   const canTransitionDisplay = () => {
     if (supportsDisplayTransition !== undefined) return supportsDisplayTransition;
@@ -298,11 +402,87 @@
     element.close(reason);
   };
 
+  const setupDialogDismiss = (dialogEl) => {
+    if (!dialogEl) return;
+    dialogEl.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeTopLayer(dialogEl, 'cancel');
+    });
+    dialogEl.addEventListener('close', () => {
+      dialogEl.returnValue = '';
+    });
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      const outside = (e) => {
+        const r = dialogEl.getBoundingClientRect();
+        return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      };
+      let pressedOutside = false;
+      dialogEl.addEventListener('pointerdown', (e) => { pressedOutside = outside(e); });
+      dialogEl.addEventListener('pointerup', (e) => {
+        if (pressedOutside && outside(e)) closeTopLayer(dialogEl, 'backdrop');
+      });
+    }
+  };
+
+  /* Project Case Study Modal */
+  const projectData = {
+    bookscribe: {
+      year: '2022',
+      title: 'BookScribe Online',
+      badge: 'Frontend UX & Technical SEO',
+      summary: 'Designed, developed, and optimized the frontend user experience and technical SEO foundation for BookScribe Online.',
+      bullets: [
+        'Architected responsive landing pages and conversion-focused UI flows.',
+        'Applied technical SEO best practices and load-speed optimization.',
+        'Drove 100+ customer acquisitions through improved UX and search visibility.'
+      ]
+    },
+    aps: {
+      year: '2023',
+      title: 'American Publishing Studios',
+      badge: 'Web Platform & Performance Tuning',
+      summary: 'Built and maintained the web platform with data-driven technical SEO and frontend performance tuning.',
+      bullets: [
+        'Refactored assets, caching, and page structure for faster Core Web Vitals.',
+        'Implemented structured technical SEO and analytics tracking.',
+        'Achieved top USA search rankings for target publishing keywords.'
+      ]
+    },
+    security: {
+      year: '2024',
+      title: 'Security & Uptime Infrastructure',
+      badge: 'Server Hardening & Reliability',
+      summary: 'Deployed Imunify360, SSL/TLS encryption, and server hardening protocols across 350+ managed web properties.',
+      bullets: [
+        'Standardized SSL/TLS and Imunify360 protection across cPanel / WHM & Hostwinds.',
+        'Reduced security vulnerabilities by 30% across the managed fleet.',
+        'Maintained 99.9% security uptime for client production websites.'
+      ]
+    },
+    campaign: {
+      year: '2024',
+      title: 'Digital Campaign & Design Leadership',
+      badge: 'Creative Production & Brand Visibility',
+      summary: 'Led end-to-end design production for digital campaigns, social media assets, book trailers, and press releases.',
+      bullets: [
+        'Coordinated visual assets across marketing, design, and product teams.',
+        'Delivered cohesive campaign collateral to expand digital visibility.',
+        'Aligned creative deliverables with measurable user engagement goals.'
+      ]
+    }
+  };
+
+  const modal = document.getElementById('project-modal');
+  const modalYear = document.getElementById('modal-year');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBadge = document.getElementById('modal-badge');
+  const modalSummary = document.getElementById('modal-summary');
+  const modalBullets = document.getElementById('modal-bullets');
+
   document.querySelectorAll('.project-detail-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const data = projectData[btn.dataset.project];
       if (!data || !modal) return;
-
       modalYear.textContent = data.year;
       modalTitle.textContent = data.title;
       modalBadge.textContent = data.badge;
@@ -318,36 +498,65 @@
     });
   });
 
-  if (modal) {
-    modalCloseBtn?.addEventListener('click', () => closeTopLayer(modal, 'close'));
-    modalContactLink?.addEventListener('click', () => closeTopLayer(modal, 'contact'));
+  document.getElementById('modal-close-btn')?.addEventListener('click', () => closeTopLayer(modal, 'close'));
+  document.getElementById('modal-contact-link')?.addEventListener('click', () => closeTopLayer(modal, 'contact'));
+  setupDialogDismiss(modal);
 
-    modal.addEventListener('cancel', (event) => {
-      event.preventDefault();
-      closeTopLayer(modal, 'cancel');
-    });
+  /* Developer Command Palette (Ctrl+K / Cmd+K) */
+  const cmdPalette = document.getElementById('cmd-palette');
+  const cmdBtn = document.getElementById('cmd-palette-btn');
+  const cmdCloseBtn = document.getElementById('cmd-close-btn');
+  const cmdSearch = document.getElementById('cmd-search');
+  const cmdItems = document.querySelectorAll('#cmd-list li');
 
-    modal.addEventListener('close', () => {
-      modal.returnValue = '';
-    });
+  const openCmdPalette = () => {
+    if (!cmdPalette || cmdPalette.open) return;
+    playTick(720, 0.04);
+    if (cmdSearch) cmdSearch.value = '';
+    cmdItems.forEach((li) => { li.hidden = false; });
+    cmdPalette.showModal();
+  };
 
-    if (!('closedBy' in HTMLDialogElement.prototype)) {
-      const outside = (e) => {
-        const r = modal.getBoundingClientRect();
-        return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
-      };
-      let pressedOutside = false;
-      modal.addEventListener('pointerdown', (e) => {
-        pressedOutside = outside(e);
-      });
-      modal.addEventListener('pointerup', (e) => {
-        if (pressedOutside && outside(e)) closeTopLayer(modal, 'backdrop');
-      });
+  cmdBtn?.addEventListener('click', openCmdPalette);
+  cmdCloseBtn?.addEventListener('click', () => closeTopLayer(cmdPalette, 'esc'));
+  setupDialogDismiss(cmdPalette);
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (cmdPalette?.open) closeTopLayer(cmdPalette, 'toggle');
+      else openCmdPalette();
     }
-  }
+  });
+
+  cmdSearch?.addEventListener('input', () => {
+    const q = cmdSearch.value.trim().toLowerCase();
+    cmdItems.forEach((li) => {
+      const text = li.textContent.toLowerCase();
+      li.hidden = !text.includes(q);
+    });
+  });
+
+  document.querySelectorAll('.cmd-item').forEach((item) => {
+    item.addEventListener('click', async () => {
+      const action = item.dataset.action;
+      const target = item.dataset.target;
+      await closeTopLayer(cmdPalette, 'select');
+
+      if (action === 'goto' && target) {
+        document.querySelector(target)?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      } else if (action === 'copy-email') {
+        copyEmail();
+      } else if (action === 'toggle-theme') {
+        toggleTheme();
+      } else if (action === 'open-url' && target) {
+        window.open(target, '_blank', 'noopener,noreferrer');
+      }
+    });
+  });
 
   /* ========================================================================
-     9. Accessible Contact Form Validation (:user-invalid + ARIA Sync)
+     10. Accessible Contact Form Validation (:user-invalid + ARIA Sync)
      ======================================================================== */
   const contactForm = document.getElementById('contact-form');
   const formStatus = document.getElementById('form-status');
@@ -497,7 +706,7 @@
   }
 
   /* ========================================================================
-     10. Staggered Scroll Reveal (Only when prefers-reduced-motion: no-preference)
+     11. Staggered Scroll Reveal
      ======================================================================== */
   const revealEls = document.querySelectorAll('.reveal');
 
@@ -519,7 +728,7 @@
   }
 
   /* ========================================================================
-     11. Footer Year
+     12. Footer Year
      ======================================================================== */
   const yearEl = document.getElementById('current-year');
   if (yearEl) {
